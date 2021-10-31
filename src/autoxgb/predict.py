@@ -101,3 +101,8 @@ class AutoXGBPredict:
         test_df = reduce_memory_usage(test_df)
         final_preds = self._predict_df(test_df)
         final_preds.to_csv(out_filename, index=False)
+
+    def predict_df(self, test_df: pd.DataFrame, out_filename: str):
+        test_df = reduce_memory_usage(test_df)
+        final_preds = self._predict_df(test_df)
+        final_preds.to_csv(out_filename, index=False)

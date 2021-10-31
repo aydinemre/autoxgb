@@ -18,11 +18,13 @@ from .utils import predict_model, reduce_memory_usage, train_model
 @dataclass
 class AutoXGB:
     # required arguments
-    train_filename: str
-    output: str
 
+    output: str
+    train_filename: Optional[str] = None
+    train_df: Optional[pd.DataFrame] = None
     # optional arguments
     test_filename: Optional[str] = None
+    test_df: Optional[pd.DataFrame] = None
     task: Optional[str] = None
     idx: Optional[str] = "id"
     targets: Optional[List[str]] = None
@@ -145,15 +147,24 @@ class AutoXGB:
             df[self.idx] = np.arange(len(df))
         return df
 
+    @classmethod
+    def __get_data(cls, df, df_path):
+        if df is not None:
+            return df
+        elif df_path is not None and os.path.exists(df_path):
+            return pd.read_csv(df_path)
+        else:
+            raise ValueError("You need to pass dataframe or existing dataframe path")
+
     def _process_data(self):
         logger.info("Reading training data")
-        train_df = pd.read_csv(self.train_filename)
+        train_df = self.__get_data(self.train_df, self.train_filename)
         train_df = reduce_memory_usage(train_df)
         problem_type = self._determine_problem_type(train_df)
 
         train_df = self._inject_idxumn(train_df)
-        if self.test_filename is not None:
-            test_df = pd.read_csv(self.test_filename)
+        if self.test_df is not None or self.test_filename is not None:
+            test_df = self.__get_data(self.test_df, self.test_filename)
             test_df = reduce_memory_usage(test_df)
             test_df = self._inject_idxumn(test_df)
 
@@ -200,18 +211,18 @@ class AutoXGB:
         for fold in range(self.num_folds):
             fold_train = train_df[train_df.kfold != fold].reset_index(drop=True)
             fold_valid = train_df[train_df.kfold == fold].reset_index(drop=True)
-            if self.test_filename is not None:
+            if self.test_df is not None or self.test_filename is not None:
                 test_fold = test_df.copy(deep=True)
             if len(categorical_features) > 0:
                 ord_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=np.nan)
                 fold_train[categorical_features] = ord_encoder.fit_transform(fold_train[categorical_features].values)
                 fold_valid[categorical_features] = ord_encoder.transform(fold_valid[categorical_features].values)
-                if self.test_filename is not None:
+                if self.test_df is not None or self.test_filename is not None:
                     test_fold[categorical_features] = ord_encoder.transform(test_fold[categorical_features].values)
                 categorical_encoders[fold] = ord_encoder
             fold_train.to_feather(os.path.join(self.output, f"train_fold_{fold}.feather"))
             fold_valid.to_feather(os.path.join(self.output, f"valid_fold_{fold}.feather"))
-            if self.test_filename is not None:
+            if self.test_df is not None or self.test_filename is not None:
                 test_fold.to_feather(os.path.join(self.output, f"test_fold_{fold}.feather"))
 
         # save config
@@ -220,7 +231,9 @@ class AutoXGB:
         model_config["features"] = self.features
         model_config["categorical_features"] = categorical_features
         model_config["train_filename"] = self.train_filename
+        model_config["train_df"] = self.train_df
         model_config["test_filename"] = self.test_filename
+        model_config["test_df"] = self.test_df
         model_config["output"] = self.output
         model_config["problem_type"] = problem_type
         model_config["idx"] = self.idx

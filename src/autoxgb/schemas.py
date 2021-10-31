@@ -1,13 +1,16 @@
 from typing import List, Optional
 
+import pandas as pd
 from pydantic import BaseModel
 
 from .enums import ProblemType
 
 
 class ModelConfig(BaseModel):
-    train_filename: str
+    train_filename: Optional[str] = None
+    train_df: Optional[pd.DataFrame] = None
     test_filename: Optional[str] = None
+    test_df: Optional[pd.DataFrame] = None
     idx: str
     targets: List[str]
     problem_type: ProblemType
@@ -20,3 +23,6 @@ class ModelConfig(BaseModel):
     num_trials: int
     time_limit: Optional[int] = None
     fast: bool
+
+    class Config:
+        arbitrary_types_allowed = True
