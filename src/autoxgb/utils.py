@@ -244,7 +244,7 @@ def predict_model(model_config, best_params):
 
         valid_ids = valid_feather[model_config.idx].values
 
-        if model_config.test_filename is not None:
+        if model_config.test_df is not None or model_config.test_filename is not None:
             test_feather = pd.read_feather(os.path.join(model_config.output, f"test_fold_{fold}.feather"))
             xtest = test_feather[model_config.features]
             test_ids = test_feather[model_config.idx].values
@@ -275,7 +275,7 @@ def predict_model(model_config, best_params):
                 trained_models.append(_m)
                 if model_config.problem_type == ProblemType.multi_column_regression:
                     ypred_temp = _m.predict(xvalid)
-                    if model_config.test_filename is not None:
+                    if model_config.test_df is not None or model_config.test_filename is not None:
                         test_pred_temp = _m.predict(xtest)
                 else:
                     ypred_temp = _m.predict_proba(xvalid)[:, 1]
@@ -313,15 +313,15 @@ def predict_model(model_config, best_params):
 
             if use_predict_proba:
                 ypred = model.predict_proba(xvalid)
-                if model_config.test_filename is not None:
+                if model_config.test_df is not None or model_config.test_filename is not None:
                     test_pred = model.predict_proba(xtest)
             else:
                 ypred = model.predict(xvalid)
-                if model_config.test_filename is not None:
+                if model_config.test_df is not None or model_config.test_filename is not None:
                     test_pred = model.predict(xtest)
 
         final_valid_predictions.update(dict(zip(valid_ids, ypred)))
-        if model_config.test_filename is not None:
+        if model_config.test_df is not None or model_config.test_filename is not None:
             final_test_predictions.append(test_pred)
 
         # calculate metric
@@ -333,7 +333,7 @@ def predict_model(model_config, best_params):
     logger.info(f"Metrics: {mean_metrics}")
     save_valid_predictions(final_valid_predictions, model_config, target_encoder, "oof_predictions.csv")
 
-    if model_config.test_filename is not None:
+    if model_config.test_df is not None or model_config.test_filename is not None:
         save_test_predictions(final_test_predictions, model_config, target_encoder, test_ids, "test_predictions.csv")
     else:
         logger.info("No test data supplied. Only OOF predictions were generated")
